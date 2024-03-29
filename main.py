@@ -3,9 +3,15 @@ from flask_socketio import SocketIO, join_room, leave_room, send, emit, disconne
 from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt, get_jwt_identity,verify_jwt_in_request, decode_token
 import mysql
 from flask_cors import CORS
+from urllib.parse import quote_plus
+import string,textwrap
+from datetime import timedelta, datetime
+import uuid
+import base64
 
 app = Flask(__name__)
 CORS(app)
+jwt = JWTManager(app)
 socketio = SocketIO(app,cors_allowed_origins="*")
 
 def create_room(user_id):
