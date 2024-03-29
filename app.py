@@ -109,7 +109,6 @@ def register():
             except Exception as e:
                 current_app.logger.error(f"Failed to send OTP email to {email}: {str(e)}")
                 return jsonify({"message": "Failed to send OTP email. Please try again later."}), 500
-            connection.close()
     except Exception as e:
         # Log any exceptions
         current_app.logger.error(f"Error during registration: {str(e)}")
@@ -138,7 +137,6 @@ def username():
                 return jsonify({"message": "Username found", "username": user[0]}), 200
             else:
                 return jsonify({"message": "Username not found"}), 404
-        connection.close()
     except Exception as e:
         current_app.logger.error(f"Error fetching username: {str(e)}")
         return jsonify({"message": "Error fetching username", "error": str(e)}), 500
@@ -159,7 +157,6 @@ def get_users():
                 return jsonify({"message": "Users found", "users": user_list}), 200
             else:
                 return jsonify({"message": "No users found"}), 404
-        connection.close()
     except Exception as e:
         current_app.logger.error(f"Error fetching users: {str(e)}")
         return jsonify({"message": "Error fetching users", "error": str(e)}), 500
@@ -179,7 +176,6 @@ def login():
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
-        connection.close()
 
         if user:
             hashed_password = hashlib.sha256(password.encode("utf-8")).hexdigest()
@@ -210,7 +206,6 @@ def verify_otp():
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
-        connection.close()
 
         if not user:
             return jsonify({"message": "User not found"}), 404
@@ -251,7 +246,6 @@ def forgot():
                 sql_update_password = "UPDATE users SET password = %s WHERE userId = %s"
                 cursor.execute(sql_update_password, (new_password_hash, user['userId']))
                 connection.commit()
-                connection.close()
                 # Send email notification
                 content = textwrap.dedent(f"""
                     Dear {user['fName']},
@@ -305,7 +299,6 @@ def report():
                 sql_insert_report = "INSERT INTO reports (user_id, reported_user, details) VALUES (%s, %s, %s)"
                 cursor.execute(sql_insert_report, (userId, reportUser, content))
                 connection.commit()
-                connection.close()
                 # Send email with report details
                 msg = Message(subject=f"Report User Details from {user.fName}",
                               sender=GMAIL,
@@ -353,7 +346,6 @@ def profile():
                         "WHERE u.userId = %s"
             cursor.execute(sql_query, (userId,))
             profile_data = cursor.fetchone()
-            connection.close()
             if profile_data:
                 # Extract profile data from the query result
                 userId, firstName, lastName, email, contact, gender = profile_data

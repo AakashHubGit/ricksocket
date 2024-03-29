@@ -30,7 +30,6 @@ def create_room(user_id):
         connection.commit()
 
         cursor.close()
-        connection.close()
         return room
     except Exception as e:
         print(f"Error creating room: {e}")
@@ -69,7 +68,6 @@ def connect(auth):
                 connection.commit()
             
         cursor.close()
-        connection.close()
 
         join_room(room_name)
         session['room_name'] = room_name
@@ -100,7 +98,6 @@ def handle_disconnect():
                 print("User not found in database")
 
             cursor.close()
-            connection.close()
         except Exception as e:
             print(f"Error handling disconnection: {e}")
     else:
@@ -134,7 +131,7 @@ def handle_message(data):
                 print("User not found in database")
 
             cursor.close()
-            connection.close()
+
         except Exception as e:
             print(f"Error handling message: {e}")
     else:
