@@ -1,6 +1,6 @@
 from flask import session, Flask
 from flask_socketio import SocketIO, join_room, leave_room, emit, disconnect
-from flask_jwt_extended import JWTManager, decode_token
+from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt, get_jwt_identity, verify_jwt_in_request, decode_token
 import mysql.connector
 from flask_cors import CORS
 from datetime import datetime, timedelta
