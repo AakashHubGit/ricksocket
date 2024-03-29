@@ -4,7 +4,7 @@ from flask_jwt_extended import create_access_token, JWTManager, jwt_required, ge
 import mysql.connector
 from flask_cors import CORS
 from datetime import datetime, timedelta
-from config import connection
+from app import connection
 import uuid
 import base64
 from config import SECRET_KEY
