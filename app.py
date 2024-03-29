@@ -1,5 +1,4 @@
 from flask import Flask, current_app, request, jsonify, session
-from models import db, Users, Rooms, Chats, Profile
 import hashlib
 from flask_mail import Mail, Message
 import random
