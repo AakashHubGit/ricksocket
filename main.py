@@ -50,6 +50,7 @@ def create_room(user_id, connection):
 
 # SocketIO event handlers
 @socketio.on("connect", namespace="/chat")
+@jwt_required()
 def connect(auth):
     token = auth.get("token")
     user_id = get_jwt_identity()
