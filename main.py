@@ -4,7 +4,7 @@ from flask_jwt_extended import create_access_token, JWTManager, jwt_required, ge
 import mysql.connector
 from flask_cors import CORS
 from datetime import datetime, timedelta
-from config import create_db_connection
+from config import connection
 import uuid
 import base64
 from config import SECRET_KEY
@@ -16,8 +16,6 @@ app.config["JWT_SECRET_KEY"] = "SECRETKEY"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=30)
 jwt = JWTManager(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
-
-connection = create_db_connection()
 
 # Function to create a new room
 def create_room(user_id):

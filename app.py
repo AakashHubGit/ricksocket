@@ -10,7 +10,7 @@ from urllib.parse import quote_plus
 from flask_cors import CORS
 from config import SECRET_KEY
 import uuid,mysql
-from config import create_db_connection
+from config import connection
 import base64
 
 # conn parameters
@@ -32,7 +32,6 @@ jwt = JWTManager(app)
 CORS(app)
 encoded_password = quote_plus(PASSWORD)
 BlockList = set()
-connection = create_db_connection()
 @app.route("/")
 def home():
     return "Hello"
