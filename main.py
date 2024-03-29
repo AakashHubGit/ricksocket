@@ -18,7 +18,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 db_pool = mysql.connector.pooling.MySQLConnectionPool(
     pool_name="my_pool",
-    pool_size=5,
+    pool_size=15,
     pool_reset_session=True,
     host="bh5rwfq4whcvk3uhwy4j-mysql.services.clever-cloud.com",
     user="uvcbblqallupmh7p",
@@ -48,6 +48,7 @@ def create_room(user_id):
 
 # SocketIO event handlers
 @socketio.on("connect", namespace="/chat")
+@jwt_required()
 def connect(auth):
     token = auth.get("token")
     user_id = get_jwt_identity()
@@ -90,6 +91,7 @@ def connect(auth):
         print(f"Error connecting to room: {e}")
 
 @socketio.on("disconnect", namespace="/chat")
+@jwt_required()
 def handle_disconnect():
     user_id = session.get('user_id')
     room_name = session.get('room_name')
@@ -121,6 +123,7 @@ def handle_disconnect():
     disconnect()
 
 @socketio.on("message", namespace="/chat")
+@jwt_required()
 def handle_message(data):
     user_id = session.get('user_id')
     room_name = session.get('room_name')
