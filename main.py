@@ -1,14 +1,12 @@
-from flask import session,Flask
-from flask_socketio import SocketIO, join_room, leave_room, send, emit, disconnect
-from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt, get_jwt_identity,verify_jwt_in_request, decode_token
-import mysql
+from flask import session, Flask
+from flask_socketio import SocketIO, join_room, leave_room, emit, disconnect
+from flask_jwt_extended import JWTManager, decode_token
+import mysql.connector
 from flask_cors import CORS
-from urllib.parse import quote_plus
-import string,textwrap
-from config import SECRET_KEY
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 import uuid
 import base64
+from config import SECRET_KEY
 
 app = Flask(__name__)
 CORS(app)
@@ -16,44 +14,38 @@ app.config["SECRET_KEY"] = SECRET_KEY
 app.config["JWT_SECRET_KEY"] = "SECRETKEY"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=30)
 jwt = JWTManager(app)
-socketio = SocketIO(app,cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-def create_room(user_id):
+def create_connection():
+    """Create a connection to the MySQL database."""
     try:
-        # Generate a unique room ID
-        room = base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8')[:8]
-
-        try:
-            connection = mysql.connector.connect(
+        connection = mysql.connector.connect(
             host="KhushRickShare.mysql.pythonanywhere-services.com",
             user="KhushRickShare",
             password="RickBase",
-            database="KhushRickShare$RickBase",
+            database="KhushRickShare$RickBase"
         )
-            print("Connected to MySQL database successfully")
-        except Exception as e:
-            print("Error connecting to MySQL database:", e)
-            return None
-
-        # Prepare SQL query to insert a new room into the database
-        sql_query = "INSERT INTO rooms (roomId, userId, max_users, time) VALUES (%s, %s, %s, %s)"
-
-        # Get the current timestamp
-        current_time = datetime.utcnow()
-
-        # Execute the SQL query
-        with conn.cursor() as cursor:
-            cursor.execute(sql_query, (room, user_id, 3, current_time))
-            connection.commit()
-        connection.close()
-        return room
+        print("Connected to MySQL database successfully")
+        return connection
     except Exception as e:
-        # Log any exceptions
+        print("Error connecting to MySQL database:", e)
+        return None
+
+def create_room(user_id, cursor):
+    """Create a new room."""
+    try:
+        room_id = base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8')[:8]
+        current_time = datetime.utcnow()
+        cursor.execute("INSERT INTO rooms (roomId, userId, max_users, time) VALUES (%s, %s, %s, %s)",
+                       (room_id, user_id, 3, current_time))
+        return room_id
+    except Exception as e:
         print(f"Error creating room: {e}")
         return None
 
 @socketio.on("connect", namespace="/chat")
 def connect(auth):
+    """Handle user connection."""
     token = auth.get("token")
     token_data = decode_token(token)
     user_id = token_data.get("sub")
@@ -61,84 +53,74 @@ def connect(auth):
     destn = auth.get("destn")
     room_name = None
 
-    try:
-        connection = mysql.connector.connect(
-        host="KhushRickShare.mysql.pythonanywhere-services.com",
-        user="KhushRickShare",
-        password="RickBase",
-        database="KhushRickShare$RickBase",
-    )
-        print("Connected to MySQL database successfully")
-    except Exception as e:
-        print("Error connecting to MySQL database:", e)
+    connection = create_connection()
+    if not connection:
         return None
 
     try:
         with connection.cursor() as cursor:
-            # Check if there are existing rooms with matching src and destn
-            sql_query = "SELECT roomId, max_users FROM rooms WHERE src = %s AND destination = %s"
-            cursor.execute(sql_query, (src, destn))
+            cursor.execute("SELECT roomId, max_users FROM rooms WHERE src = %s AND destination = %s", (src, destn))
             rooms_with_matching_src_dest = cursor.fetchall()
 
-            # Iterate through the matching rooms
             for room in rooms_with_matching_src_dest:
                 if room['max_users'] > 0:
                     room_name = room['roomId']
-                    # Reduce the max_users count for the room
-                    sql_update = "UPDATE rooms SET max_users = max_users - 1 WHERE roomId = %s"
-                    cursor.execute(sql_update, (room_name,))
+                    cursor.execute("UPDATE rooms SET max_users = max_users - 1 WHERE roomId = %s", (room_name,))
                     connection.commit()
                     break
 
-            # If no room was found, create a new room
             if room_name is None:
-                room_name = create_room(user_id)
+                room_name = create_room(user_id, cursor)
                 if room_name:
-                    # Update the newly created room with src, destn, and reduced max_users count
-                    sql_update = "UPDATE rooms SET src = %s, destination = %s, max_users = max_users - 1 WHERE roomId = %s"
-                    cursor.execute(sql_update, (src, destn, room_name))
+                    cursor.execute("UPDATE rooms SET src = %s, destination = %s, max_users = max_users - 1 WHERE roomId = %s",
+                                   (src, destn, room_name))
                     connection.commit()
             
-        # Join the room
         join_room(room_name)
         session['room_name'] = room_name
         session['user_id'] = user_id
 
-        # Get the username from the user_id
-        with connection.cursor() as cursor:
-            # Assuming Users is a table in your database
-            sql_query = "SELECT username FROM users WHERE userId = %s"
-            cursor.execute(sql_query, (user_id,))
-            user = cursor.fetchone()
-            if user:
-                print(f"{user['username']} connected to room {room_name}")
-                emit('user_joined', {'username': user['username']}, room=room_name)
+        cursor.execute("SELECT username FROM users WHERE userId = %s", (user_id,))
+        user = cursor.fetchone()
+        if user:
+            print(f"{user['username']} connected to room {room_name}")
+            emit('user_joined', {'username': user['username']}, room=room_name)
     except Exception as e:
         print(f"Error connecting to room: {e}")
+    finally:
+        if connection:
+            connection.close()
 
 @socketio.on("disconnect", namespace="/chat")
 def handle_disconnect():
+    """Handle user disconnection."""
     user_id = session.get('user_id')
     room_name = session.get('room_name')
-    if user_id and room_name:
-        try:
-            with connection.cursor() as cursor:
-                # Get the user's username
-                sql_query = "SELECT username FROM users WHERE userId = %s"
-                cursor.execute(sql_query, (user_id,))
-                user = cursor.fetchone()
 
-                if user:
-                    # Leave the room
-                    leave_room(room_name)
-                    print(f"{user['username']} disconnected from room {room_name}")
-                    emit('user_left', {'username': user['username']}, room=room_name)
-                else:
-                    print("User not found in database")
-        except Exception as e:
-            print(f"Error handling disconnection: {e}")
-    else:
+    if not user_id or not room_name:
         print("User disconnected but no session found")
+        return
+
+    connection = create_connection()
+    if not connection:
+        return None
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT username FROM users WHERE userId = %s", (user_id,))
+            user = cursor.fetchone()
+
+            if user:
+                leave_room(room_name)
+                print(f"{user['username']} disconnected from room {room_name}")
+                emit('user_left', {'username': user['username']}, room=room_name)
+            else:
+                print("User not found in database")
+    except Exception as e:
+        print(f"Error handling disconnection: {e}")
+    finally:
+        if connection:
+            connection.close()
 
     session.pop('room_name', None)
     session.pop('user_id', None)
@@ -146,33 +128,37 @@ def handle_disconnect():
 
 @socketio.on("message", namespace="/chat")
 def handle_message(data):
-    chat_id = base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8')[:8]
+    """Handle incoming messages."""
     user_id = session.get('user_id')
     room_name = session.get('room_name')
-    if user_id and room_name:
-        try:
-            with connection.cursor() as cursor:
-                # Get the user's username
-                sql_query = "SELECT username FROM users WHERE userId = %s"
-                cursor.execute(sql_query, (user_id,))
-                user = cursor.fetchone()
 
-                if user:
-                    # Insert the new chat message
-                    sql_insert = "INSERT INTO chats (userId, message, chatId, time, roomId) VALUES (%s, %s, %s, %s, %s)"
-                    cursor.execute(sql_insert, (user_id, data['message'], chat_id, datetime.utcnow(), room_name))
-                    connection.commit()
-
-                    # Emit the message to the room
-                    emit("message", {"username": user['username'], "message": data['message']}, room=room_name)
-                    print(f"Message from user {user['username']} in room {room_name}: {data['message']}")
-                else:
-                    print("User not found in database")
-        except Exception as e:
-            print(f"Error handling message: {e}")
-    else:
+    if not user_id or not room_name:
         print("User or room not found")
+        return
 
+    connection = create_connection()
+    if not connection:
+        return None
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT username FROM users WHERE userId = %s", (user_id,))
+            user = cursor.fetchone()
+
+            if user:
+                chat_id = base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8')[:8]
+                cursor.execute("INSERT INTO chats (userId, message, chatId, time, roomId) VALUES (%s, %s, %s, %s, %s)",
+                               (user_id, data['message'], chat_id, datetime.utcnow(), room_name))
+                connection.commit()
+                emit("message", {"username": user['username'], "message": data['message']}, room=room_name)
+                print(f"Message from user {user['username']} in room {room_name}: {data['message']}")
+            else:
+                print("User not found in database")
+    except Exception as e:
+        print(f"Error handling message: {e}")
+    finally:
+        if connection:
+            connection.close()
 
 if __name__ == "__main__":
-    socketio.run(app,allow_unsafe_werkzeug=True)
+    socketio.run(app, allow_unsafe_werkzeug=True)
