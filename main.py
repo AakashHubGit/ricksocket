@@ -11,6 +11,9 @@ import base64
 
 app = Flask(__name__)
 CORS(app)
+app.config["SECRET_KEY"] = SECRET_KEY
+app.config["JWT_SECRET_KEY"] = "SECRETKEY"
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=30)
 jwt = JWTManager(app)
 socketio = SocketIO(app,cors_allowed_origins="*")
 
