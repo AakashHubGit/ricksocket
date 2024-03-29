@@ -1,8 +1,10 @@
 from flask import session,Flask
 from flask_socketio import SocketIO, join_room, leave_room, send, emit, disconnect
 import mysql
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 socketio = SocketIO(app,cors_allowed_origins="*")
 
 def create_room(user_id):
@@ -162,4 +164,4 @@ def handle_message(data):
 
 
 if __name__ == "__main__":
-    socketio.run(app)
+    socketio.run(app,debug=True)
