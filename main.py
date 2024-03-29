@@ -17,6 +17,7 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=30)
 jwt = JWTManager(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+connection = create_db_connection()
 
 # Function to create a new room
 def create_room(user_id):
