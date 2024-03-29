@@ -5,6 +5,7 @@ import mysql
 from flask_cors import CORS
 from urllib.parse import quote_plus
 import string,textwrap
+from config import SECRET_KEY
 from datetime import timedelta, datetime
 import uuid
 import base64
