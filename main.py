@@ -4,6 +4,7 @@ from flask_jwt_extended import create_access_token, JWTManager, jwt_required, ge
 import mysql.connector
 from flask_cors import CORS
 from datetime import datetime, timedelta
+from config import connection
 import uuid
 import base64
 from config import SECRET_KEY
@@ -16,21 +17,11 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=30)
 jwt = JWTManager(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-db_pool = mysql.connector.pooling.MySQLConnectionPool(
-    pool_name="my_pool",
-    pool_size=15,
-    pool_reset_session=True,
-    host="bh5rwfq4whcvk3uhwy4j-mysql.services.clever-cloud.com",
-    user="uvcbblqallupmh7p",
-    password="Q9V29KhWbpqzKNW8yEkL",
-    database="bh5rwfq4whcvk3uhwy4j",
-)
 
 # Function to create a new room
 def create_room(user_id):
     try:
         room = base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8')[:8]
-        connection = db_pool.get_connection()
         cursor = connection.cursor()
 
         sql_query = "INSERT INTO rooms (roomId, userId, max_users, time) VALUES (%s, %s, %s, %s)"
@@ -57,7 +48,6 @@ def connect(auth):
     room_name = None
 
     try:
-        connection = db_pool.get_connection()
         cursor = connection.cursor()
 
         sql_query = "SELECT roomId, max_users FROM rooms WHERE src = %s AND destination = %s"
@@ -97,7 +87,6 @@ def handle_disconnect():
     room_name = session.get('room_name')
     if user_id and room_name:
         try:
-            connection = db_pool.get_connection()
             cursor = connection.cursor()
 
             sql_query = "SELECT username FROM users WHERE userId = %s"
@@ -129,7 +118,6 @@ def handle_message(data):
     room_name = session.get('room_name')
     if user_id and room_name:
         try:
-            connection = db_pool.get_connection()
             cursor = connection.cursor()
 
             sql_query = "SELECT username FROM users WHERE userId = %s"

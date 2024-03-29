@@ -10,6 +10,7 @@ from urllib.parse import quote_plus
 from flask_cors import CORS
 from config import SECRET_KEY
 import uuid,mysql
+from config import create_db_connection
 import base64
 
 # conn parameters
@@ -31,7 +32,7 @@ jwt = JWTManager(app)
 CORS(app)
 encoded_password = quote_plus(PASSWORD)
 BlockList = set()
-
+connection = create_db_connection()
 @app.route("/")
 def home():
     return "Hello"
@@ -52,18 +53,6 @@ def register():
         email = data["email"]
         password_hash = hashlib.sha256(data["password"].encode("utf-8")).hexdigest()
         username = generate_random_username()
-
-        try:
-            connection = mysql.connector.connect(
-            host="bh5rwfq4whcvk3uhwy4j-mysql.services.clever-cloud.com",
-            user="uvcbblqallupmh7p",
-            password="Q9V29KhWbpqzKNW8yEkL",
-            database="bh5rwfq4whcvk3uhwy4j",
-        )
-            print("Connected to MySQL database successfully")
-        except Exception as e:
-            print("Error connecting to MySQL database:", e)
-            return None
 
         # Generate unique user ID
         uniqueId = base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8')
@@ -139,17 +128,7 @@ def generate_otp(length=6):
 def username():
     try:
         userId = get_jwt_identity()
-        try:
-            connection = mysql.connector.connect(
-            host="KhushRickShare.mysql.pythonanywhere-services.com",
-            user="KhushRickShare",
-            password="RickBase",
-            database="KhushRickShare$RickBase",
-        )
-            print("Connected to MySQL database successfully")
-        except Exception as e:
-            print("Error connecting to MySQL database:", e)
-            return None
+       
         with connection.cursor() as cursor:
             # Fetch user by userId
             sql_select_user = "SELECT * FROM users WHERE userId = %s"
@@ -170,17 +149,6 @@ def username():
 @jwt_required()
 def get_users():
     try:
-        try:
-            connection = mysql.connector.connect(
-            host="KhushRickShare.mysql.pythonanywhere-services.com",
-            user="KhushRickShare",
-            password="RickBase",
-            database="KhushRickShare$RickBase",
-        )
-            print("Connected to MySQL database successfully")
-        except Exception as e:
-            print("Error connecting to MySQL database:", e)
-            return None
         with connection.cursor() as cursor:
             # Fetch all users
             sql_select_all_users = "SELECT userId, username FROM users"
@@ -207,17 +175,7 @@ def login():
         email = data["email"]
         password = data["password"]
 
-        try:
-            connection = mysql.connector.connect(
-            host="KhushRickShare.mysql.pythonanywhere-services.com",
-            user="KhushRickShare",
-            password="RickBase",
-            database="KhushRickShare$RickBase",
-        )
-            print("Connected to MySQL database successfully")
-        except Exception as e:
-            print("Error connecting to MySQL database:", e)
-            return None
+        
 
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
@@ -250,18 +208,6 @@ def verify_otp():
         otp = data["otp"]
         email = data["email"]
 
-        try:
-            connection = mysql.connector.connect(
-            host="KhushRickShare.mysql.pythonanywhere-services.com",
-            user="KhushRickShare",
-            password="RickBase",
-            database="KhushRickShare$RickBase",
-        )
-            print("Connected to MySQL database successfully")
-        except Exception as e:
-            print("Error connecting to MySQL database:", e)
-            return None
-
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
@@ -290,18 +236,6 @@ def forgot():
     data = request.json
     if not data:
         return jsonify({"message": "Data not provided"}), 400
-
-    try:
-        connection = mysql.connector.connect(
-        host="KhushRickShare.mysql.pythonanywhere-services.com",
-        user="KhushRickShare",
-        password="RickBase",
-        database="KhushRickShare$RickBase",
-    )
-        print("Connected to MySQL database successfully")
-    except Exception as e:
-        print("Error connecting to MySQL database:", e)
-        return None
 
     try:
         with connection.cursor() as cursor:
@@ -357,18 +291,6 @@ def report():
     extraInfo = data["extraInfo"]
     reportUser = data["user"]
 
-    try:
-        connection = mysql.connector.connect(
-        host="KhushRickShare.mysql.pythonanywhere-services.com",
-        user="KhushRickShare",
-        password="RickBase",
-        database="KhushRickShare$RickBase",
-    )
-        print("Connected to MySQL database successfully")
-    except Exception as e:
-        print("Error connecting to MySQL database:", e)
-        return None
-
     if not data:
         return jsonify({"message": "No data provided"}), 400
     else:
@@ -422,17 +344,7 @@ def logout():
 def profile():
     try:
         userId = get_jwt_identity()
-        try:
-            connection = mysql.connector.connect(
-            host="KhushRickShare.mysql.pythonanywhere-services.com",
-            user="KhushRickShare",
-            password="RickBase",
-            database="KhushRickShare$RickBase",
-        )
-            print("Connected to MySQL database successfully")
-        except Exception as e:
-            print("Error connecting to MySQL database:", e)
-            return None
+        
         # Establish a cursor to execute SQL queries
         with connection.cursor() as cursor:
             # Execute SQL query to retrieve user profile
