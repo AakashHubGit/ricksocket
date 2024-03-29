@@ -20,10 +20,10 @@ db_pool = mysql.connector.pooling.MySQLConnectionPool(
     pool_name="my_pool",
     pool_size=5,
     pool_reset_session=True,
-    host="KhushRickShare.mysql.pythonanywhere-services.com",
-    user="KhushRickShare",
-    password="RickBase",
-    database="KhushRickShare$RickBase"
+    host="bh5rwfq4whcvk3uhwy4j-mysql.services.clever-cloud.com",
+    user="uvcbblqallupmh7p",
+    password="Q9V29KhWbpqzKNW8yEkL",
+    database="bh5rwfq4whcvk3uhwy4j",
 )
 
 # Function to create a new room
