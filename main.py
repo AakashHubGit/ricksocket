@@ -1,9 +1,43 @@
-from flask import session
+from flask import session,Flask
 from flask_socketio import SocketIO, join_room, leave_room, send, emit, disconnect
-from config import connection
-from utils import create_room
+import mysql
 
-socketio = SocketIO(cors_allowed_origins="*")
+app = Flask(__name__)
+socketio = SocketIO(app,cors_allowed_origins="*")
+
+def create_room(user_id):
+    try:
+        # Generate a unique room ID
+        room = base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8')[:8]
+
+        try:
+            connection = mysql.connector.connect(
+            host="KhushRickShare.mysql.pythonanywhere-services.com",
+            user="KhushRickShare",
+            password="RickBase",
+            database="KhushRickShare$RickBase",
+        )
+            print("Connected to MySQL database successfully")
+        except Exception as e:
+            print("Error connecting to MySQL database:", e)
+            return None
+
+        # Prepare SQL query to insert a new room into the database
+        sql_query = "INSERT INTO rooms (roomId, userId, max_users, time) VALUES (%s, %s, %s, %s)"
+
+        # Get the current timestamp
+        current_time = datetime.utcnow()
+
+        # Execute the SQL query
+        with conn.cursor() as cursor:
+            cursor.execute(sql_query, (room, user_id, 3, current_time))
+            connection.commit()
+        connection.close()
+        return room
+    except Exception as e:
+        # Log any exceptions
+        print(f"Error creating room: {e}")
+        return None
 
 @socketio.on("connect", namespace="/chat")
 def connect(auth):
@@ -13,6 +47,18 @@ def connect(auth):
     src = auth.get("src")
     destn = auth.get("destn")
     room_name = None
+
+    try:
+        connection = mysql.connector.connect(
+        host="KhushRickShare.mysql.pythonanywhere-services.com",
+        user="KhushRickShare",
+        password="RickBase",
+        database="KhushRickShare$RickBase",
+    )
+        print("Connected to MySQL database successfully")
+    except Exception as e:
+        print("Error connecting to MySQL database:", e)
+        return None
 
     try:
         with connection.cursor() as cursor:
@@ -39,17 +85,21 @@ def connect(auth):
                     sql_update = "UPDATE rooms SET src = %s, destination = %s, max_users = max_users - 1 WHERE roomId = %s"
                     cursor.execute(sql_update, (src, destn, room_name))
                     connection.commit()
-
+            
         # Join the room
         join_room(room_name)
         session['room_name'] = room_name
         session['user_id'] = user_id
 
         # Get the username from the user_id
-        user = Users.query.filter_by(userId=user_id).first()
-        if user:
-            print(f"{user.username} connected to room {room_name}")
-            emit('user_joined', {'username': user.username}, room=room_name)
+        with connection.cursor() as cursor:
+            # Assuming Users is a table in your database
+            sql_query = "SELECT username FROM users WHERE userId = %s"
+            cursor.execute(sql_query, (user_id,))
+            user = cursor.fetchone()
+            if user:
+                print(f"{user['username']} connected to room {room_name}")
+                emit('user_joined', {'username': user['username']}, room=room_name)
     except Exception as e:
         print(f"Error connecting to room: {e}")
 
@@ -112,4 +162,4 @@ def handle_message(data):
 
 
 if __name__ == "__main__":
-    socketio.run()
+    socketio.run(app)
