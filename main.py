@@ -54,7 +54,16 @@ def connect(auth):
     token = auth.get("token")
     token_data = decode_token(token)
     user_id = token_data.get("sub")
-    user = Users.query.filter_by(userId=user_id).first()
+    
+    # Create a database connection
+    connection = create_db_connection()
+
+    # Retrieve user information from the database
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM users WHERE userId = %s", (user_id,))
+    user = cursor.fetchone()
+    cursor.close()
+
     src = auth.get("src")
     destn = auth.get("destn")
     room_name = None
@@ -62,7 +71,6 @@ def connect(auth):
     print(destn)
     print(user_id)
     try:
-        connection = create_db_connection()  # Create a new connection
         if connection:
             try:
                 cursor = connection.cursor()
