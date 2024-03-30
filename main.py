@@ -50,10 +50,11 @@ def create_room(user_id, connection):
 
 # SocketIO event handlers
 @socketio.on("connect", namespace="/chat")
-@jwt_required()
 def connect(auth):
     token = auth.get("token")
-    user_id = get_jwt_identity()
+    token_data = decode_token(token)
+    user_id = token_data.get("sub")
+    user = Users.query.filter_by(userId=user_id).first()
     src = auth.get("src")
     destn = auth.get("destn")
     room_name = None
