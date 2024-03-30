@@ -9,11 +9,11 @@ import base64
 from config import SECRET_KEY
 
 app = Flask(__name__)
-CORS(app)
 app.config["SECRET_KEY"] = SECRET_KEY
 app.config["JWT_SECRET_KEY"] = "SECRETKEY"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=30)
 jwt = JWTManager(app)
+CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 def create_db_connection():
@@ -57,7 +57,9 @@ def connect(auth):
     src = auth.get("src")
     destn = auth.get("destn")
     room_name = None
-
+    print(src)
+    print(destn)
+    print(user_id)
     try:
         connection = create_db_connection()  # Create a new connection
         if connection:
