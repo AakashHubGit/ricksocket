@@ -1,6 +1,6 @@
 from flask import session, Flask, request
 from flask_socketio import SocketIO, join_room, emit, disconnect
-from flask_jwt_extended import create_access_token, JWTManager, jwt_required, decode_token
+from flask_jwt_extended import jwt_required, decode_token
 import mysql.connector
 from flask_cors import CORS
 from datetime import datetime, timedelta
@@ -10,31 +10,25 @@ from config import SECRET_KEY
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
-app.config["JWT_SECRET_KEY"] = "SECRETKEY"
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=30)
-jwt = JWTManager(app)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Create database connection pool
-db_connection_pool = mysql.connector.pooling.MySQLConnectionPool(
-    pool_name="my_pool",
-    pool_size=5,
-    pool_reset_session=True,
-    host="bh5rwfq4whcvk3uhwy4j-mysql.services.clever-cloud.com",
-    user="uvcbblqallupmh7p",
-    password="Q9V29KhWbpqzKNW8yEkL",
-    database="bh5rwfq4whcvk3uhwy4j"
-)
-
-# Function to get a database connection from the pool
-def get_db_connection():
+# Function to create a database connection
+def create_db_connection():
     try:
-        return db_connection_pool.get_connection()
-    except mysql.connector.Error as e:
+        connection = mysql.connector.connect(
+            host="bh5rwfq4whcvk3uhwy4j-mysql.services.clever-cloud.com",
+            user="uvcbblqallupmh7p",
+            password="Q9V29KhWbpqzKNW8yEkL",
+            database="bh5rwfq4whcvk3uhwy4j",
+        )
+        print("Connected to MySQL database successfully")
+        return connection
+    except Exception as e:
         print("Error connecting to MySQL database:", e)
         return None
 
+# Function to find or create a room
 def find_or_create_room(src, destn, connection):
     cursor = connection.cursor(dictionary=True)
     try:
@@ -76,14 +70,14 @@ def connect():
         destn = data.get("destn")
 
         # Get database connection
-        connection = get_db_connection()
+        connection = create_db_connection()
         if not connection:
             return "Failed to connect to the database", 500
 
         # Fetch user details from the database
-        with connection.cursor(dictionary=True) as cursor:
-            cursor.execute("SELECT * FROM users WHERE userId = %s", (user_id,))
-            user = cursor.fetchone()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users WHERE userId = %s", (user_id,))
+        user = cursor.fetchone()
 
         # Find or create room and join if successful
         if user:
@@ -108,7 +102,7 @@ def handle_disconnect():
     room_name = session.get('room_name')
 
     if user_id and room_name:
-        connection = get_db_connection()
+        connection = create_db_connection()
         if not connection:
             return "Failed to connect to the database", 500
 
@@ -143,7 +137,7 @@ def handle_message():
     if user_id and room_name:
         message = request.get_json().get("message")
 
-        connection = get_db_connection()
+        connection = create_db_connection()
         if not connection:
             return "Failed to connect to the database", 500
 
