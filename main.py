@@ -1,6 +1,6 @@
-from flask import session, Flask
-from flask_socketio import SocketIO, join_room, leave_room, emit, disconnect
-from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt, get_jwt_identity, verify_jwt_in_request, decode_token
+from flask import session, Flask, request
+from flask_socketio import SocketIO, join_room, emit, disconnect
+from flask_jwt_extended import create_access_token, JWTManager, jwt_required, decode_token
 import mysql.connector
 from flask_cors import CORS
 from datetime import datetime, timedelta
@@ -16,17 +16,22 @@ jwt = JWTManager(app)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-def create_db_connection():
+# Create database connection pool
+db_connection_pool = mysql.connector.pooling.MySQLConnectionPool(
+    pool_name="my_pool",
+    pool_size=5,
+    pool_reset_session=True,
+    host="bh5rwfq4whcvk3uhwy4j-mysql.services.clever-cloud.com",
+    user="uvcbblqallupmh7p",
+    password="Q9V29KhWbpqzKNW8yEkL",
+    database="bh5rwfq4whcvk3uhwy4j"
+)
+
+# Function to get a database connection from the pool
+def get_db_connection():
     try:
-        connection = mysql.connector.connect(
-            host="bh5rwfq4whcvk3uhwy4j-mysql.services.clever-cloud.com",
-            user="uvcbblqallupmh7p",
-            password="Q9V29KhWbpqzKNW8yEkL",
-            database="bh5rwfq4whcvk3uhwy4j",
-        )
-        print("Connected to MySQL database successfully")
-        return connection
-    except Exception as e:
+        return db_connection_pool.get_connection()
+    except mysql.connector.Error as e:
         print("Error connecting to MySQL database:", e)
         return None
 
@@ -56,25 +61,31 @@ def create_room(src, destn, connection):
     cursor.close()
     return room_id
 
-# SocketIO event handlers
+# Routes and SocketIO event handlers
+
 @app.route('/connect', methods=['POST'])
 def connect():
-    token = request.get_json().get("token")
-    user_id = decode_token(token).get("sub") if token else None
-
-    connection = create_db_connection()
-    if not connection:
-        return "Failed to connect to the database", 500
-
-    cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM users WHERE userId = %s", (user_id,))
-    user = cursor.fetchone()
-    cursor.close()
-
-    src = request.get_json().get("src")
-    destn = request.get_json().get("destn")
-
     try:
+        # Parse request data and get user details
+        data = request.get_json()
+        token = data.get("token")
+        user_id = decode_token(token).get("sub") if token else None
+
+        # Get room details
+        src = data.get("src")
+        destn = data.get("destn")
+
+        # Get database connection
+        connection = get_db_connection()
+        if not connection:
+            return "Failed to connect to the database", 500
+
+        # Fetch user details from the database
+        with connection.cursor(dictionary=True) as cursor:
+            cursor.execute("SELECT * FROM users WHERE userId = %s", (user_id,))
+            user = cursor.fetchone()
+
+        # Find or create room and join if successful
         if user:
             room_name = find_or_create_room(src, destn, connection)
             if room_name:
@@ -86,7 +97,8 @@ def connect():
     except Exception as e:
         print(f"Error connecting to room: {e}")
     finally:
-        connection.close()
+        if connection:
+            connection.close()
 
     return "Connected to room", 200
 
@@ -96,7 +108,7 @@ def handle_disconnect():
     room_name = session.get('room_name')
 
     if user_id and room_name:
-        connection = create_db_connection()
+        connection = get_db_connection()
         if not connection:
             return "Failed to connect to the database", 500
 
@@ -131,7 +143,7 @@ def handle_message():
     if user_id and room_name:
         message = request.get_json().get("message")
 
-        connection = create_db_connection()
+        connection = get_db_connection()
         if not connection:
             return "Failed to connect to the database", 500
 
